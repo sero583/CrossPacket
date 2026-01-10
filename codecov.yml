@@ -1,0 +1,141 @@
+# Codecov Configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    after_n_builds: 9 # Wait for all 9 languages
+
+# Path fixes: remap coverage report paths to generated/
+# The coverage workflow uses generated/ directly where possible.
+# Some tools still report different paths that need mapping.
+fixes:
+  # TypeScript: Jest lcov reports from tests/typescript relative paths
+  - "../../generated/typescript/::generated/typescript/"
+
+  # Python: pytest-cov reports generated/python paths (should work as-is)
+
+  # Go: coverage.out uses Go module path crosspacket/packets/
+  - "crosspacket/packets/::generated/go/"
+
+  # Java: JaCoCo reports com/crosspacket/ package paths
+  - "com/crosspacket/::generated/java/"
+
+  # C#: Cobertura reports from tests/csharp/ working directory
+  - "tests/csharp/::generated/csharp/"
+
+  # Dart: lcov reports from tests/dart/lib/
+  - "tests/dart/lib/generated/::generated/dart/generated/"
+  - "tests/dart/lib/::generated/dart/"
+  - "lib/generated/::generated/dart/generated/"
+  - "lib/::generated/dart/"
+
+  # PHP: PHPUnit reports paths - uses generated/php via autoload
+  - "../../generated/php/::generated/php/"
+
+  # Rust: tarpaulin reports from tests/rust/ relative paths
+  - "../../generated/rust/::generated/rust/"
+
+  # C++: lcov reports from tests/cpp relative paths (../../generated/cpp)
+  - "../../generated/cpp/::generated/cpp/"
+
+coverage:
+  precision: 1
+  round: down
+  range: "70...100"
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+# Component coverage for each language
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+  individual_components:
+    - component_id: typescript
+      name: TypeScript
+      paths:
+        - generated/typescript/**
+    - component_id: python
+      name: Python
+      paths:
+        - generated/python/**
+    - component_id: java
+      name: Java
+      paths:
+        - generated/java/**
+    - component_id: go
+      name: Go
+      paths:
+        - generated/go/**
+    - component_id: csharp
+      name: C#
+      paths:
+        - generated/csharp/**
+    - component_id: dart
+      name: Dart
+      paths:
+        - generated/dart/**
+    - component_id: php
+      name: PHP
+      paths:
+        - generated/php/**
+    - component_id: rust
+      name: Rust
+      paths:
+        - generated/rust/**
+    - component_id: cpp
+      name: C++
+      paths:
+        - generated/cpp/**
+
+comment:
+  layout: "header, diff, flags, components"
+  behavior: default
+  require_changes: false
+
+flags:
+  typescript:
+    paths:
+      - generated/typescript/
+    carryforward: true
+  python:
+    paths:
+      - generated/python/
+    carryforward: true
+  java:
+    paths:
+      - generated/java/
+    carryforward: true
+  go:
+    paths:
+      - generated/go/
+    carryforward: true
+  csharp:
+    paths:
+      - generated/csharp/
+    carryforward: true
+  dart:
+    paths:
+      - generated/dart/
+    carryforward: true
+  php:
+    paths:
+      - generated/php/
+    carryforward: true
+  rust:
+    paths:
+      - generated/rust/
+    carryforward: true
+  cpp:
+    paths:
+      - generated/cpp/
+    carryforward: true

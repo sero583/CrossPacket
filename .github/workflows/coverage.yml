@@ -1,0 +1,779 @@
+# CrossPacket Coverage Collection Workflow
+#
+# Collects coverage from all languages and uploads to Codecov
+# for dynamic badge generation.
+#
+# IMPORTANT: This workflow uses the committed generated/ folder directly
+# to ensure coverage report paths match the git repository structure.
+# This is required for Codecov to correctly map coverage to source files.
+
+name: Coverage
+
+on:
+  workflow_run:
+    workflows: ["Generate Code"]
+    types: [completed]
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+  JAVA_VERSION: "17"
+  GO_VERSION: "1.23"
+  DART_VERSION: "stable"
+  DOTNET_VERSION: "9.0.x"
+  PHP_VERSION: "8.2"
+
+jobs:
+  # ============================================================================
+  # Check if bot committed (skip coverage on user commits)
+  # ============================================================================
+  check-bot-commit:
+    name: Check Bot Commit
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - name: Check if last commit was by bot
+        id: check
+        run: |
+          AUTHOR=$(git log -1 --format='%an')
+          echo "Last commit author: $AUTHOR"
+          if [[ "$AUTHOR" == "github-actions[bot]" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "Skipping coverage - commit was by user, not bot"
+          fi
+
+  # ============================================================================
+  # TypeScript Coverage
+  # Uses generated/typescript/ directly (already committed to repo)
+  # ============================================================================
+  coverage-typescript:
+    name: TypeScript Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install test dependencies
+        working-directory: tests/typescript
+        run: npm install
+
+      - name: Install msgpack in generated folder
+        working-directory: generated/typescript
+        run: |
+          npm init -y
+          npm install @msgpack/msgpack
+
+      - name: Run tests with coverage
+        working-directory: tests/typescript
+        run: npx jest --coverage --coverageReporters=lcov
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: typescript
+          files: tests/typescript/coverage/lcov.info
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # Python Coverage
+  # Uses generated/python/ directly (already committed to repo)
+  # ============================================================================
+  coverage-python:
+    name: Python Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install pytest pytest-cov msgpack
+
+      - name: Run tests with coverage
+        run: python -m pytest tests/python/ -v --cov=generated/python --cov-report=xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: python
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # Go Coverage
+  # Uses generated/go/ directly with inline tests
+  # ============================================================================
+  coverage-go:
+    name: Go Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Setup Go module with tests
+        working-directory: generated/go
+        run: |
+          go mod init crosspacket/packets 2>/dev/null || true
+          go mod tidy || go get github.com/vmihailenco/msgpack/v5 || true
+          # Create comprehensive test file matching the actual generated API
+          cat > packets_test.go << 'GOTEST'
+          package packets
+
+          import (
+            "testing"
+            "time"
+          )
+
+          // =============================================================================
+          // PingPacket Tests
+          // =============================================================================
+          func TestPingPacketGetType(t *testing.T) {
+            p := PingPacket{Timestamp: time.Now(), Message: "test"}
+            if got := p.GetType(); got != "/example/PingPacket" {
+              t.Errorf("GetType() = %q, want %q", got, "/example/PingPacket")
+            }
+          }
+
+          func TestPingPacketJSONRoundtrip(t *testing.T) {
+            original := PingPacket{Timestamp: time.Now(), Message: "hello"}
+            jsonData, err := original.ToJSON()
+            if err != nil {
+              t.Fatalf("ToJSON() error: %v", err)
+            }
+            restored, err := PingPacketFromJSON(jsonData)
+            if err != nil {
+              t.Fatalf("PingPacketFromJSON() error: %v", err)
+            }
+            if restored.Message != original.Message {
+              t.Errorf("Message = %q, want %q", restored.Message, original.Message)
+            }
+          }
+
+          func TestPingPacketMsgPackRoundtrip(t *testing.T) {
+            original := PingPacket{Timestamp: time.Now(), Message: "msgpack test"}
+            msgpackData, err := original.ToMsgPack()
+            if err != nil {
+              t.Fatalf("ToMsgPack() error: %v", err)
+            }
+            restored, err := PingPacketFromMsgPack(msgpackData)
+            if err != nil {
+              t.Fatalf("PingPacketFromMsgPack() error: %v", err)
+            }
+            if restored.Message != original.Message {
+              t.Errorf("Message = %q, want %q", restored.Message, original.Message)
+            }
+          }
+
+          // =============================================================================
+          // PongPacket Tests
+          // =============================================================================
+          func TestPongPacketGetType(t *testing.T) {
+            p := PongPacket{}
+            if got := p.GetType(); got != "/example/PongPacket" {
+              t.Errorf("GetType() = %q, want %q", got, "/example/PongPacket")
+            }
+          }
+
+          func TestPongPacketJSONRoundtrip(t *testing.T) {
+            original := PongPacket{
+              OriginalTimestamp: time.Now(),
+              ResponseTimestamp: time.Now(),
+              LatencyMs:         42,
+            }
+            jsonData, err := original.ToJSON()
+            if err != nil {
+              t.Fatalf("ToJSON() error: %v", err)
+            }
+            restored, err := PongPacketFromJSON(jsonData)
+            if err != nil {
+              t.Fatalf("PongPacketFromJSON() error: %v", err)
+            }
+            if restored.LatencyMs != original.LatencyMs {
+              t.Errorf("LatencyMs = %d, want %d", restored.LatencyMs, original.LatencyMs)
+            }
+          }
+
+          func TestPongPacketMsgPackRoundtrip(t *testing.T) {
+            original := PongPacket{
+              OriginalTimestamp: time.Now(),
+              ResponseTimestamp: time.Now(),
+              LatencyMs:         100,
+            }
+            msgpackData, err := original.ToMsgPack()
+            if err != nil {
+              t.Fatalf("ToMsgPack() error: %v", err)
+            }
+            restored, err := PongPacketFromMsgPack(msgpackData)
+            if err != nil {
+              t.Fatalf("PongPacketFromMsgPack() error: %v", err)
+            }
+            if restored.LatencyMs != original.LatencyMs {
+              t.Errorf("LatencyMs = %d, want %d", restored.LatencyMs, original.LatencyMs)
+            }
+          }
+
+          // =============================================================================
+          // MessagePacket Tests
+          // =============================================================================
+          func TestMessagePacketGetType(t *testing.T) {
+            p := MessagePacket{}
+            if got := p.GetType(); got != "/chat/MessagePacket" {
+              t.Errorf("GetType() = %q, want %q", got, "/chat/MessagePacket")
+            }
+          }
+
+          func TestMessagePacketJSONRoundtrip(t *testing.T) {
+            original := MessagePacket{
+              SenderId:  "user123",
+              Content:   "Hello World",
+              Timestamp: time.Now(),
+            }
+            jsonData, err := original.ToJSON()
+            if err != nil {
+              t.Fatalf("ToJSON() error: %v", err)
+            }
+            restored, err := MessagePacketFromJSON(jsonData)
+            if err != nil {
+              t.Fatalf("MessagePacketFromJSON() error: %v", err)
+            }
+            if restored.Content != original.Content {
+              t.Errorf("Content = %q, want %q", restored.Content, original.Content)
+            }
+            if restored.SenderId != original.SenderId {
+              t.Errorf("SenderId = %q, want %q", restored.SenderId, original.SenderId)
+            }
+          }
+
+          func TestMessagePacketMsgPackRoundtrip(t *testing.T) {
+            original := MessagePacket{
+              SenderId:  "msgpack_user",
+              Content:   "MsgPack content",
+              Timestamp: time.Now(),
+            }
+            msgpackData, err := original.ToMsgPack()
+            if err != nil {
+              t.Fatalf("ToMsgPack() error: %v", err)
+            }
+            restored, err := MessagePacketFromMsgPack(msgpackData)
+            if err != nil {
+              t.Fatalf("MessagePacketFromMsgPack() error: %v", err)
+            }
+            if restored.Content != original.Content {
+              t.Errorf("Content = %q, want %q", restored.Content, original.Content)
+            }
+          }
+
+          // =============================================================================
+          // DataChunkPacket Tests
+          // =============================================================================
+          func TestDataChunkPacketGetType(t *testing.T) {
+            p := DataChunkPacket{}
+            if got := p.GetType(); got != "/example/DataChunkPacket" {
+              t.Errorf("GetType() = %q, want %q", got, "/example/DataChunkPacket")
+            }
+          }
+
+          func TestDataChunkPacketJSONRoundtrip(t *testing.T) {
+            original := DataChunkPacket{
+              ChunkIndex:  0,
+              TotalChunks: 5,
+              Data:        map[string]interface{}{"key": "value"},
+              Checksum:    "abc123",
+            }
+            jsonData, err := original.ToJSON()
+            if err != nil {
+              t.Fatalf("ToJSON() error: %v", err)
+            }
+            restored, err := DataChunkPacketFromJSON(jsonData)
+            if err != nil {
+              t.Fatalf("DataChunkPacketFromJSON() error: %v", err)
+            }
+            if restored.ChunkIndex != original.ChunkIndex {
+              t.Errorf("ChunkIndex = %d, want %d", restored.ChunkIndex, original.ChunkIndex)
+            }
+            if restored.Checksum != original.Checksum {
+              t.Errorf("Checksum = %q, want %q", restored.Checksum, original.Checksum)
+            }
+          }
+
+          func TestDataChunkPacketMsgPackRoundtrip(t *testing.T) {
+            original := DataChunkPacket{
+              ChunkIndex:  2,
+              TotalChunks: 10,
+              Checksum:    "msgpack_checksum",
+            }
+            msgpackData, err := original.ToMsgPack()
+            if err != nil {
+              t.Fatalf("ToMsgPack() error: %v", err)
+            }
+            restored, err := DataChunkPacketFromMsgPack(msgpackData)
+            if err != nil {
+              t.Fatalf("DataChunkPacketFromMsgPack() error: %v", err)
+            }
+            if restored.TotalChunks != original.TotalChunks {
+              t.Errorf("TotalChunks = %d, want %d", restored.TotalChunks, original.TotalChunks)
+            }
+          }
+
+          // =============================================================================
+          // ComprehensivePacket Tests
+          // =============================================================================
+          func TestComprehensivePacketGetType(t *testing.T) {
+            p := ComprehensivePacket{}
+            if got := p.GetType(); got != "/test/ComprehensivePacket" {
+              t.Errorf("GetType() = %q, want %q", got, "/test/ComprehensivePacket")
+            }
+          }
+
+          func TestComprehensivePacketJSONRoundtrip(t *testing.T) {
+            original := ComprehensivePacket{
+              IntField:        42,
+              FloatField:      3.14,
+              DoubleField:     2.71828,
+              StringField:     "test",
+              BoolField:       true,
+              DatetimeField:   time.Now(),
+              TimeField:       "14:30:00",
+              ListField:       []interface{}{1, "two", 3.0},
+              ListIntField:    []int64{10, 20, 30},
+              ListStringField: []string{"a", "b", "c"},
+              BytesField:      []byte{0xDE, 0xAD, 0xBE, 0xEF},
+            }
+            jsonData, err := original.ToJSON()
+            if err != nil {
+              t.Fatalf("ToJSON() error: %v", err)
+            }
+            restored, err := ComprehensivePacketFromJSON(jsonData)
+            if err != nil {
+              t.Fatalf("ComprehensivePacketFromJSON() error: %v", err)
+            }
+            if restored.IntField != original.IntField {
+              t.Errorf("IntField = %d, want %d", restored.IntField, original.IntField)
+            }
+            if restored.StringField != original.StringField {
+              t.Errorf("StringField = %q, want %q", restored.StringField, original.StringField)
+            }
+            if restored.BoolField != original.BoolField {
+              t.Errorf("BoolField = %v, want %v", restored.BoolField, original.BoolField)
+            }
+          }
+
+          func TestComprehensivePacketMsgPackRoundtrip(t *testing.T) {
+            original := ComprehensivePacket{
+              IntField:    999,
+              StringField: "msgpack test",
+              BoolField:   false,
+            }
+            msgpackData, err := original.ToMsgPack()
+            if err != nil {
+              t.Fatalf("ToMsgPack() error: %v", err)
+            }
+            restored, err := ComprehensivePacketFromMsgPack(msgpackData)
+            if err != nil {
+              t.Fatalf("ComprehensivePacketFromMsgPack() error: %v", err)
+            }
+            if restored.IntField != original.IntField {
+              t.Errorf("IntField = %d, want %d", restored.IntField, original.IntField)
+            }
+          }
+
+          // =============================================================================
+          // UserProfilePacket Tests
+          // =============================================================================
+          // Helper function for string pointers (Bio and Age are optional)
+          func strPtr(s string) *string { return &s }
+          func intPtr(i int64) *int64 { return &i }
+
+          func TestUserProfilePacketGetType(t *testing.T) {
+            p := UserProfilePacket{}
+            if got := p.GetType(); got != "/example/UserProfilePacket" {
+              t.Errorf("GetType() = %q, want %q", got, "/example/UserProfilePacket")
+            }
+          }
+
+          func TestUserProfilePacketJSONRoundtrip(t *testing.T) {
+            original := UserProfilePacket{
+              UserId:    123,
+              Username:  "testuser",
+              Email:     "test@example.com",
+              Bio:       strPtr("Hello, I am a test user"),
+              Age:       intPtr(25),
+              Balance:   100.50,
+              Tags:      []string{"developer", "gamer"},
+              CreatedAt: time.Now(),
+            }
+            jsonData, err := original.ToJSON()
+            if err != nil {
+              t.Fatalf("ToJSON() error: %v", err)
+            }
+            restored, err := UserProfilePacketFromJSON(jsonData)
+            if err != nil {
+              t.Fatalf("UserProfilePacketFromJSON() error: %v", err)
+            }
+            if restored.UserId != original.UserId {
+              t.Errorf("UserId = %d, want %d", restored.UserId, original.UserId)
+            }
+            if restored.Username != original.Username {
+              t.Errorf("Username = %q, want %q", restored.Username, original.Username)
+            }
+          }
+
+          func TestUserProfilePacketMsgPackRoundtrip(t *testing.T) {
+            original := UserProfilePacket{
+              UserId:    456,
+              Username:  "msgpack_user",
+              Email:     "msgpack@example.com",
+              Balance:   50.25,
+              CreatedAt: time.Now(),
+            }
+            msgpackData, err := original.ToMsgPack()
+            if err != nil {
+              t.Fatalf("ToMsgPack() error: %v", err)
+            }
+            restored, err := UserProfilePacketFromMsgPack(msgpackData)
+            if err != nil {
+              t.Fatalf("UserProfilePacketFromMsgPack() error: %v", err)
+            }
+            if restored.UserId != original.UserId {
+              t.Errorf("UserId = %d, want %d", restored.UserId, original.UserId)
+            }
+          }
+
+          // =============================================================================
+          // SecureMessagePacket Tests
+          // =============================================================================
+          func TestSecureMessagePacketGetType(t *testing.T) {
+            p := SecureMessagePacket{}
+            if got := p.GetType(); got != "/example/SecureMessagePacket" {
+              t.Errorf("GetType() = %q, want %q", got, "/example/SecureMessagePacket")
+            }
+          }
+
+          func TestSecureMessagePacketJSONRoundtrip(t *testing.T) {
+            original := SecureMessagePacket{
+              MessageId:        "msg-001",
+              SenderId:         1,
+              RecipientId:      2,
+              Subject:          "Test Subject",
+              Body:             "Test body",
+              EncryptedPayload: []byte{0xCA, 0xFE, 0xBA, 0xBE},
+              Priority:         5,
+              IsRead:           false,
+              SentAt:           time.Now(),
+            }
+            jsonData, err := original.ToJSON()
+            if err != nil {
+              t.Fatalf("ToJSON() error: %v", err)
+            }
+            restored, err := SecureMessagePacketFromJSON(jsonData)
+            if err != nil {
+              t.Fatalf("SecureMessagePacketFromJSON() error: %v", err)
+            }
+            if restored.MessageId != original.MessageId {
+              t.Errorf("MessageId = %q, want %q", restored.MessageId, original.MessageId)
+            }
+            if restored.Priority != original.Priority {
+              t.Errorf("Priority = %d, want %d", restored.Priority, original.Priority)
+            }
+          }
+
+          func TestSecureMessagePacketMsgPackRoundtrip(t *testing.T) {
+            original := SecureMessagePacket{
+              MessageId:   "secure-msg",
+              SenderId:    10,
+              RecipientId: 20,
+              Priority:    3,
+              IsRead:      true,
+              SentAt:      time.Now(),
+            }
+            msgpackData, err := original.ToMsgPack()
+            if err != nil {
+              t.Fatalf("ToMsgPack() error: %v", err)
+            }
+            restored, err := SecureMessagePacketFromMsgPack(msgpackData)
+            if err != nil {
+              t.Fatalf("SecureMessagePacketFromMsgPack() error: %v", err)
+            }
+            if restored.SenderId != original.SenderId {
+              t.Errorf("SenderId = %d, want %d", restored.SenderId, original.SenderId)
+            }
+          }
+          GOTEST
+
+      - name: Run tests with coverage
+        working-directory: generated/go
+        run: go test -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: go
+          files: generated/go/coverage.out
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # Java Coverage
+  # Uses generated/java/ - copies to test project for JaCoCo
+  # ============================================================================
+  coverage-java:
+    name: Java Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Copy generated code to test project
+        working-directory: tests/java
+        run: |
+          mkdir -p src/main/java/com/crosspacket
+          cp ../../generated/java/*.java src/main/java/com/crosspacket/
+
+      - name: Run tests with coverage
+        working-directory: tests/java
+        run: mvn test jacoco:report
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: java
+          files: tests/java/target/site/jacoco/jacoco.xml
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # C# Coverage
+  # Uses generated/csharp/ - copies to test project for XPlat Code Coverage
+  # ============================================================================
+  coverage-csharp:
+    name: C# Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Copy generated files to test project
+        working-directory: tests/csharp
+        run: cp ../../generated/csharp/*.cs .
+
+      - name: Run tests with coverage
+        working-directory: tests/csharp
+        run: dotnet test CrossPacket.Tests.csproj --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: csharp
+          directory: tests/csharp/coverage
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # Dart Coverage
+  # Uses generated/dart/ - copies to test project lib/generated/
+  # ============================================================================
+  coverage-dart:
+    name: Dart Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+
+      - name: Copy generated code to tests
+        run: |
+          mkdir -p tests/dart/lib/generated
+          cp generated/dart/generated/*.dart tests/dart/lib/generated/
+          cp generated/dart/data_packet.dart tests/dart/lib/
+
+      - name: Run tests with coverage
+        working-directory: tests/dart
+        run: |
+          dart pub get
+          dart test --coverage=coverage
+          dart pub global activate coverage
+          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: dart
+          files: tests/dart/coverage/lcov.info
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # PHP Coverage
+  # Uses generated/php/ - PHPUnit tests reference via autoload
+  # ============================================================================
+  coverage-php:
+    name: PHP Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: msgpack, xdebug
+          coverage: xdebug
+
+      - name: Install Composer dependencies
+        working-directory: tests/php
+        run: |
+          rm -rf vendor composer.lock
+          composer install
+
+      - name: Run tests with coverage
+        working-directory: tests/php
+        run: php vendor/bin/phpunit --coverage-clover coverage.xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: php
+          files: tests/php/coverage.xml
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # Rust Coverage (cargo-tarpaulin)
+  # Uses generated/rust/ - creates Cargo.toml in generated folder
+  # ============================================================================
+  coverage-rust:
+    name: Rust Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Create Cargo.toml for generated code
+        run: |
+          cat > generated/rust/Cargo.toml << 'EOF'
+          [package]
+          name = "crosspacket_generated"
+          version = "1.0.0"
+          edition = "2021"
+
+          [lib]
+          path = "mod.rs"
+
+          [dependencies]
+          serde = { version = "1.0", features = ["derive"] }
+          serde_json = "1.0"
+          rmp-serde = "1.3"
+          chrono = { version = "0.4", features = ["serde"] }
+          EOF
+
+      - name: Run tests with coverage
+        working-directory: tests/rust
+        run: |
+          # Run tarpaulin on the test crate which imports the generated code
+          cargo tarpaulin --out Xml --output-dir .
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: rust
+          files: tests/rust/cobertura.xml
+          fail_ci_if_error: false
+
+  # ============================================================================
+  # C++ Coverage (gcov/lcov with Catch2)
+  # Uses generated/cpp/ directly
+  # ============================================================================
+  coverage-cpp:
+    name: C++ Coverage
+    needs: check-bot-commit
+    if: needs.check-bot-commit.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install dependencies (Catch2, lcov, yyjson)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov libmsgpack-dev catch2
+          git clone https://github.com/ibireme/yyjson.git /tmp/yyjson
+          cd /tmp/yyjson && mkdir build && cd build
+          cmake .. && make && sudo make install
+          sudo ldconfig
+
+      - name: Build and run Catch2 tests with coverage
+        working-directory: tests/cpp
+        env:
+          TEST_MODE: BOTH
+        run: |
+          g++ -std=c++17 -fprofile-arcs -ftest-coverage -I../../generated/cpp \
+              test_catch2.cpp ../../generated/cpp/*.cpp \
+              -lyyjson -lCatch2Main -lCatch2 -o test_catch2
+          ./test_catch2 --reporter compact
+          lcov --capture --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: cpp
+          files: tests/cpp/coverage.info
+          fail_ci_if_error: false

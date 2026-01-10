@@ -1,0 +1,217 @@
+# CrossPacket .gitignore
+# Author: Serhat Gueler (sero583)
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+venv/
+.venv/
+env/
+
+# =============================================================================
+# Node.js / TypeScript
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+*.tsbuildinfo
+
+# =============================================================================
+# Java
+# =============================================================================
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+target/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+.settings/
+.classpath
+.project
+*.iml
+
+# =============================================================================
+# C# / .NET
+# =============================================================================
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# =============================================================================
+# Rust
+# =============================================================================
+target/
+Cargo.lock
+**/*.rs.bk
+
+# =============================================================================
+# Go
+# =============================================================================
+*.exe
+*.exe~
+*.dll
+*.dylib
+*.test
+*.out
+go.work
+
+# =============================================================================
+# Dart/Flutter
+# =============================================================================
+.dart_tool/
+.packages
+pubspec.lock
+*.g.dart
+
+# =============================================================================
+# C/C++
+# =============================================================================
+*.o
+*.obj
+*.a
+*.lib
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# =============================================================================
+# IDE and Editors
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# OS Generated
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# =============================================================================
+# Generated Output
+# =============================================================================
+output/
+test_output/
+# generated/  # TRACKED for Codecov - auto-updated by generate.yml workflow
+*.generated.*
+
+# =============================================================================
+# Test Artifacts
+# =============================================================================
+tests/cross_language/canonical_data/
+tests/cross_language/dist/
+tests/cross_language/rust_tests/target/
+tests/cross_language/rust_unified/
+tests/cross_language/java_unified/
+tests/cross_language/node_modules/
+tests/cross_language/package-lock.json
+tests/cross_language/package.json
+tests/cross_language/*.class
+
+# PHP vendor and coverage
+tests/php/vendor/
+tests/php/.phpunit.cache/
+tests/php/coverage/
+tests/php/coverage.xml
+
+# Dart coverage
+tests/dart/coverage/
+tests/dart/.dart_tool/
+tests/dart/build/
+
+# TypeScript coverage
+tests/typescript/coverage/
+tests/typescript/node_modules/
+tests/typescript/.nyc_output/
+
+# C# coverage
+tests/csharp/coverage/
+tests/csharp/TestResults/
+tests/csharp/*.cobertura.xml
+
+# Python coverage
+tests/python/coverage.json
+tests/python/.coverage
+
+# Java target
+tests/java/target/
+
+# Rust target
+tests/rust/target/
+
+# C++ build artifacts
+tests/cpp/*.o
+tests/cpp/test_comprehensive
+
+# Go coverage
+tests/go/coverage.out
+
+# =============================================================================
+# Temporary Files
+# =============================================================================
+*.tmp
+*.temp
+*.log
+*.bak
+*.backup

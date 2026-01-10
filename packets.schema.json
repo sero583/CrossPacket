@@ -1,0 +1,435 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CrossPacket Configuration",
+  "description": "Schema for defining cross-platform data packets with full configuration",
+  "type": "object",
+  "required": ["packets"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "config": {
+      "type": "object",
+      "description": "Generator configuration for all languages and global settings",
+      "properties": {
+        "global": {
+          "type": "object",
+          "description": "Global settings applied to all languages",
+          "properties": {
+            "strict_validation": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable strict validation for all packets (required field checks, bounds validation)"
+            },
+            "generate_security_utils": {
+              "type": "boolean",
+              "default": true,
+              "description": "Generate security utility modules for validation"
+            },
+            "schema_version": {
+              "type": "integer",
+              "default": 1,
+              "description": "Schema version for forward/backward compatibility"
+            },
+            "type_field": {
+              "type": "string",
+              "default": "packetType",
+              "description": "Name of the field used to identify packet type in serialized data. Reserved - cannot be used as a field name."
+            },
+            "serialization": {
+              "type": "object",
+              "description": "Serialization format settings (can be overridden by CLI flags)",
+              "properties": {
+                "json": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Generate JSON serialization methods"
+                },
+                "msgpack": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Generate MessagePack serialization methods"
+                }
+              }
+            }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "description": "Default validation limits for security-critical applications",
+          "properties": {
+            "max_int": {
+              "type": "integer",
+              "default": 9223372036854775807,
+              "description": "Maximum allowed integer value (default: 2^63-1)"
+            },
+            "min_int": {
+              "type": "integer",
+              "default": -9223372036854775808,
+              "description": "Minimum allowed integer value (default: -2^63)"
+            },
+            "max_list_size": {
+              "type": "integer",
+              "default": 100000,
+              "description": "Maximum allowed list size"
+            },
+            "max_map_size": {
+              "type": "integer",
+              "default": 100000,
+              "description": "Maximum allowed map size"
+            },
+            "max_string_length": {
+              "type": "integer",
+              "default": 10000000,
+              "description": "Maximum allowed string length"
+            },
+            "max_bytes_length": {
+              "type": "integer",
+              "default": 100000000,
+              "description": "Maximum allowed bytes length (default: 100MB)"
+            }
+          }
+        },
+        "dart": {
+          "type": "object",
+          "description": "Dart/Flutter code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/dart",
+              "description": "Output directory for Dart files"
+            },
+            "base_package": {
+              "type": "string",
+              "default": "data_packets",
+              "description": "Base package name for imports"
+            },
+            "indent": {
+              "type": "string",
+              "default": "  ",
+              "description": "Indentation (2 spaces for Dart)"
+            },
+            "null_safety": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable Dart null safety features"
+            }
+          }
+        },
+        "python": {
+          "type": "object",
+          "description": "Python code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/python",
+              "description": "Output directory for Python files"
+            },
+            "package_name": {
+              "type": "string",
+              "default": "packets",
+              "description": "Python package name"
+            },
+            "indent": {
+              "type": "string",
+              "default": "    ",
+              "description": "Indentation (4 spaces per PEP 8)"
+            },
+            "type_hints": {
+              "type": "boolean",
+              "default": true,
+              "description": "Generate Python type hints"
+            }
+          }
+        },
+        "java": {
+          "type": "object",
+          "description": "Java code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/java",
+              "description": "Output directory for Java files"
+            },
+            "package": {
+              "type": "string",
+              "default": "com.crosspacket",
+              "description": "Java package name"
+            },
+            "indent": {
+              "type": "string",
+              "default": "    ",
+              "description": "Indentation (4 spaces)"
+            }
+          }
+        },
+        "typescript": {
+          "type": "object",
+          "description": "TypeScript code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/typescript",
+              "description": "Output directory for TypeScript files"
+            },
+            "module_name": {
+              "type": "string",
+              "default": "packets",
+              "description": "TypeScript module name"
+            },
+            "indent": {
+              "type": "string",
+              "default": "  ",
+              "description": "Indentation (2 spaces)"
+            },
+            "strict_mode": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable TypeScript strict mode"
+            }
+          }
+        },
+        "rust": {
+          "type": "object",
+          "description": "Rust code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/rust",
+              "description": "Output directory for Rust files"
+            },
+            "module_name": {
+              "type": "string",
+              "default": "packets",
+              "description": "Rust module name"
+            },
+            "indent": {
+              "type": "string",
+              "default": "    ",
+              "description": "Indentation (4 spaces)"
+            }
+          }
+        },
+        "go": {
+          "type": "object",
+          "description": "Go code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/go",
+              "description": "Output directory for Go files"
+            },
+            "package": {
+              "type": "string",
+              "default": "packets",
+              "description": "Go package name"
+            },
+            "indent": {
+              "type": "string",
+              "default": "\t",
+              "description": "Indentation (tabs for Go)"
+            }
+          }
+        },
+        "cpp": {
+          "type": "object",
+          "description": "C++ code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/cpp",
+              "description": "Output directory for C++ files"
+            },
+            "namespace": {
+              "type": "string",
+              "default": "packets",
+              "description": "C++ namespace"
+            },
+            "indent": {
+              "type": "string",
+              "default": "    ",
+              "description": "Indentation (4 spaces)"
+            },
+            "use_smart_pointers": {
+              "type": "boolean",
+              "default": true,
+              "description": "Use std::unique_ptr/std::shared_ptr"
+            }
+          }
+        },
+        "csharp": {
+          "type": "object",
+          "description": "C# code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/csharp",
+              "description": "Output directory for C# files"
+            },
+            "namespace": {
+              "type": "string",
+              "default": "CrossPacket",
+              "description": "C# namespace"
+            },
+            "indent": {
+              "type": "string",
+              "default": "    ",
+              "description": "Indentation (4 spaces)"
+            },
+            "nullable_reference_types": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable nullable reference types"
+            }
+          }
+        },
+        "php": {
+          "type": "object",
+          "description": "PHP code generation settings",
+          "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "./output/php",
+              "description": "Output directory for PHP files"
+            },
+            "namespace": {
+              "type": "string",
+              "default": "App\\DataPackets",
+              "description": "PHP namespace (PSR-4)"
+            },
+            "indent": {
+              "type": "string",
+              "default": "    ",
+              "description": "Indentation (4 spaces per PSR-12)"
+            },
+            "strict_types": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable declare(strict_types=1)"
+            }
+          }
+        }
+      }
+    },
+    "packets": {
+      "type": "object",
+      "description": "Packet definitions keyed by packet path/type",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["fields"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Human-readable description of the packet"
+          },
+          "deprecated": {
+            "type": "boolean",
+            "default": false,
+            "description": "Mark packet as deprecated"
+          },
+          "version": {
+            "type": "integer",
+            "default": 1,
+            "description": "Packet schema version for compatibility"
+          },
+          "fields": {
+            "type": "object",
+            "description": "Packet fields",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "description": "Simple type shorthand"
+                },
+                {
+                  "type": "object",
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "int",
+                        "float",
+                        "double",
+                        "bool",
+                        "string",
+                        "datetime",
+                        "time",
+                        "bytes",
+                        "list",
+                        "list_int",
+                        "list_string",
+                        "map",
+                        "embedded_map",
+                        "map_string_dynamic"
+                      ],
+                      "description": "Field data type"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Human-readable field description"
+                    },
+                    "optional": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "Whether the field is optional (nullable)"
+                    },
+                    "deprecated": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "Mark field as deprecated"
+                    },
+                    "validation": {
+                      "type": "object",
+                      "description": "Field-level validation rules for security-critical applications",
+                      "properties": {
+                        "required": {
+                          "type": "boolean",
+                          "default": true,
+                          "description": "Field must be present and non-null"
+                        },
+                        "min": {
+                          "type": "number",
+                          "description": "Minimum value (for int/float) or minimum length (for string/list/bytes)"
+                        },
+                        "max": {
+                          "type": "number",
+                          "description": "Maximum value (for int/float) or maximum length (for string/list/bytes)"
+                        },
+                        "pattern": {
+                          "type": "string",
+                          "description": "Regex pattern for string validation"
+                        },
+                        "allow_empty": {
+                          "type": "boolean",
+                          "default": true,
+                          "description": "Allow empty string/list/map"
+                        },
+                        "allow_nan": {
+                          "type": "boolean",
+                          "default": false,
+                          "description": "Allow NaN for float fields"
+                        },
+                        "allow_infinity": {
+                          "type": "boolean",
+                          "default": false,
+                          "description": "Allow Infinity for float fields"
+                        },
+                        "max_depth": {
+                          "type": "integer",
+                          "default": 10,
+                          "description": "Maximum nesting depth for list/map fields"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,415 @@
+{
+  "$schema": "./packets.schema.json",
+  "config": {
+    "global": {
+      "strict_validation": false,
+      "generate_security_utils": true,
+      "schema_version": 1,
+      "type_field": "packetType",
+      "serialization": {
+        "json": true,
+        "msgpack": true
+      }
+    },
+    "validation": {
+      "max_int": 9223372036854775807,
+      "min_int": -9223372036854775808,
+      "max_list_size": 100000,
+      "max_map_size": 100000,
+      "max_string_length": 10000000,
+      "max_bytes_length": 100000000
+    },
+    "python": {
+      "output_dir": "./output/python",
+      "package_name": "packets",
+      "indent": "    ",
+      "type_hints": true
+    },
+    "typescript": {
+      "output_dir": "./output/typescript",
+      "module_name": "packets",
+      "indent": "  ",
+      "strict_mode": true
+    },
+    "java": {
+      "output_dir": "./output/java",
+      "package": "com.crosspacket",
+      "indent": "    "
+    },
+    "csharp": {
+      "output_dir": "./output/csharp",
+      "namespace": "CrossPacket",
+      "indent": "    ",
+      "nullable_reference_types": true
+    },
+    "go": {
+      "output_dir": "./output/go",
+      "package": "packets",
+      "indent": "\t"
+    },
+    "rust": {
+      "output_dir": "./output/rust",
+      "module_name": "packets",
+      "indent": "    "
+    },
+    "dart": {
+      "output_dir": "./output/dart",
+      "base_package": "data_packets",
+      "indent": "  ",
+      "null_safety": true
+    },
+    "cpp": {
+      "output_dir": "./output/cpp",
+      "namespace": "packets",
+      "indent": "    ",
+      "use_smart_pointers": true
+    },
+    "php": {
+      "output_dir": "./output/php",
+      "namespace": "App\\DataPackets",
+      "indent": "    ",
+      "strict_types": true
+    }
+  },
+  "packets": {
+    "/chat/MessagePacket": {
+      "description": "A chat message packet for real-time communication",
+      "fields": {
+        "sender_id": {
+          "type": "string",
+          "description": "Unique identifier of the sender"
+        },
+        "content": {
+          "type": "string",
+          "description": "Message content"
+        },
+        "timestamp": {
+          "type": "datetime",
+          "description": "When the message was sent"
+        }
+      }
+    },
+    "/example/PingPacket": {
+      "description": "Simple ping packet for connection testing",
+      "fields": {
+        "timestamp": {
+          "type": "datetime",
+          "description": "When the ping was sent"
+        },
+        "message": {
+          "type": "string",
+          "description": "Optional ping message"
+        }
+      }
+    },
+    "/example/PongPacket": {
+      "description": "Response to a ping packet",
+      "fields": {
+        "original_timestamp": {
+          "type": "datetime",
+          "description": "Timestamp from the original ping"
+        },
+        "response_timestamp": {
+          "type": "datetime",
+          "description": "When the pong was sent"
+        },
+        "latency_ms": {
+          "type": "int",
+          "description": "Calculated latency in milliseconds"
+        }
+      }
+    },
+    "/example/DataChunkPacket": {
+      "description": "Chunked data packet for progressive loading of large datasets",
+      "fields": {
+        "chunk_index": {
+          "type": "int",
+          "description": "Current chunk index (0-based)"
+        },
+        "total_chunks": {
+          "type": "int",
+          "description": "Total number of chunks"
+        },
+        "data": {
+          "type": "embedded_map",
+          "description": "Chunk data - native msgpack map"
+        },
+        "checksum": {
+          "type": "string",
+          "description": "Checksum for data integrity verification"
+        }
+      }
+    },
+    "/test/ComprehensivePacket": {
+      "description": "Test packet containing ALL supported types for comprehensive testing",
+      "version": 1,
+      "fields": {
+        "int_field": {
+          "type": "int",
+          "description": "Integer field for testing int serialization",
+          "validation": {
+            "required": true,
+            "min": -2147483648,
+            "max": 2147483647
+          }
+        },
+        "float_field": {
+          "type": "float",
+          "description": "Float field for testing float serialization",
+          "validation": {
+            "allow_nan": false,
+            "allow_infinity": false
+          }
+        },
+        "double_field": {
+          "type": "double",
+          "description": "Double precision field for testing",
+          "validation": {
+            "allow_nan": false,
+            "allow_infinity": false
+          }
+        },
+        "string_field": {
+          "type": "string",
+          "description": "String field for testing string serialization",
+          "validation": {
+            "required": true,
+            "max": 1000,
+            "allow_empty": false
+          }
+        },
+        "bool_field": {
+          "type": "bool",
+          "description": "Boolean field for testing bool serialization"
+        },
+        "datetime_field": {
+          "type": "datetime",
+          "description": "DateTime field for testing datetime serialization"
+        },
+        "time_field": {
+          "type": "time",
+          "description": "Time-only field for testing time serialization"
+        },
+        "list_field": {
+          "type": "list",
+          "description": "List field for testing list serialization",
+          "validation": {
+            "max": 1000,
+            "max_depth": 5
+          }
+        },
+        "list_int_field": {
+          "type": "list_int",
+          "description": "Integer list field for testing typed list serialization"
+        },
+        "list_string_field": {
+          "type": "list_string",
+          "description": "String list field for testing typed list serialization"
+        },
+        "map_field": {
+          "type": "map",
+          "description": "Map field for testing map serialization",
+          "validation": {
+            "max": 500,
+            "max_depth": 3
+          }
+        },
+        "embedded_map_field": {
+          "type": "embedded_map",
+          "description": "Embedded map field for testing embedded map serialization"
+        },
+        "map_string_dynamic_field": {
+          "type": "map_string_dynamic",
+          "description": "String-keyed dynamic map field"
+        },
+        "bytes_field": {
+          "type": "bytes",
+          "description": "Bytes field for testing binary serialization",
+          "validation": {
+            "max": 1048576
+          }
+        }
+      }
+    },
+    "/example/UserProfilePacket": {
+      "description": "Example packet demonstrating field-level validation overrides",
+      "version": 1,
+      "fields": {
+        "user_id": {
+          "type": "int",
+          "description": "Unique user identifier",
+          "validation": {
+            "required": true,
+            "min": 1,
+            "max": 2147483647
+          }
+        },
+        "username": {
+          "type": "string",
+          "description": "Username (alphanumeric, 3-30 chars)",
+          "validation": {
+            "required": true,
+            "min": 3,
+            "max": 30,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "allow_empty": false
+          }
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address (max 255 chars, overrides global max_string_length)",
+          "validation": {
+            "required": true,
+            "max": 255,
+            "pattern": "^[^@]+@[^@]+\\.[^@]+$",
+            "allow_empty": false
+          }
+        },
+        "bio": {
+          "type": "string",
+          "description": "User biography (max 500 chars, allows empty)",
+          "optional": true,
+          "validation": {
+            "required": false,
+            "max": 500,
+            "allow_empty": true
+          }
+        },
+        "age": {
+          "type": "int",
+          "description": "User age (0-150, overrides global int limits)",
+          "optional": true,
+          "validation": {
+            "required": false,
+            "min": 0,
+            "max": 150
+          }
+        },
+        "balance": {
+          "type": "float",
+          "description": "Account balance (no NaN/Infinity allowed)",
+          "validation": {
+            "min": 0,
+            "allow_nan": false,
+            "allow_infinity": false
+          }
+        },
+        "tags": {
+          "type": "list_string",
+          "description": "User tags (max 10 items, overrides global max_list_size)",
+          "validation": {
+            "max": 10,
+            "allow_empty": true
+          }
+        },
+        "preferences": {
+          "type": "map",
+          "description": "User preferences (max 50 entries, max depth 2)",
+          "validation": {
+            "max": 50,
+            "max_depth": 2
+          }
+        },
+        "avatar": {
+          "type": "bytes",
+          "description": "Avatar image (max 1MB, overrides global max_bytes_length)",
+          "optional": true,
+          "validation": {
+            "max": 1048576
+          }
+        },
+        "created_at": {
+          "type": "datetime",
+          "description": "Account creation timestamp"
+        },
+        "last_login": {
+          "type": "datetime",
+          "description": "Last login timestamp",
+          "optional": true
+        }
+      }
+    },
+    "/example/SecureMessagePacket": {
+      "description": "Security-hardened message packet with strict validation",
+      "version": 1,
+      "fields": {
+        "message_id": {
+          "type": "string",
+          "description": "UUID message identifier",
+          "validation": {
+            "required": true,
+            "min": 36,
+            "max": 36,
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "sender_id": {
+          "type": "int",
+          "description": "Sender user ID",
+          "validation": {
+            "required": true,
+            "min": 1
+          }
+        },
+        "recipient_id": {
+          "type": "int",
+          "description": "Recipient user ID",
+          "validation": {
+            "required": true,
+            "min": 1
+          }
+        },
+        "subject": {
+          "type": "string",
+          "description": "Message subject (max 200 chars)",
+          "validation": {
+            "required": true,
+            "max": 200,
+            "allow_empty": false
+          }
+        },
+        "body": {
+          "type": "string",
+          "description": "Message body (max 10000 chars)",
+          "validation": {
+            "required": true,
+            "max": 10000,
+            "allow_empty": false
+          }
+        },
+        "attachments": {
+          "type": "list",
+          "description": "Attachment metadata (max 5 files)",
+          "validation": {
+            "max": 5,
+            "max_depth": 2
+          }
+        },
+        "encrypted_payload": {
+          "type": "bytes",
+          "description": "Encrypted message content (max 10MB)",
+          "optional": true,
+          "validation": {
+            "max": 10485760
+          }
+        },
+        "priority": {
+          "type": "int",
+          "description": "Message priority (1-5)",
+          "validation": {
+            "min": 1,
+            "max": 5
+          }
+        },
+        "is_read": {
+          "type": "bool",
+          "description": "Read status flag"
+        },
+        "sent_at": {
+          "type": "datetime",
+          "description": "Send timestamp"
+        }
+      }
+    }
+  }
+}

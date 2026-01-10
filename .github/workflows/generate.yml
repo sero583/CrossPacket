@@ -1,0 +1,65 @@
+# CrossPacket Code Generation Workflow
+#
+# Generates code for all languages and commits to the `generated/` folder.
+# This enables Codecov to properly track coverage since the source files
+# exist in the repository.
+
+name: Generate Code
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'packets/*.json'
+      - 'generate.py'
+      - 'generators/**'
+      - 'templates/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  generate:
+    name: Generate All Languages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Generate all language code
+        run: |
+          # Generate to output/ first (default behavior)
+          python generate.py --all --override --clean
+          
+          # Copy to generated/ folder for Codecov tracking
+          rm -rf generated/
+          mkdir -p generated
+          cp -r output/* generated/
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add generated/
+          if git diff --staged --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit generated files
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add generated/
+          git commit -m "chore: auto-generate code for Codecov tracking"
+          git push

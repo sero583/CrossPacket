@@ -1,0 +1,532 @@
+# CrossPacket CI - Comprehensive Multi-Language Test Suite
+#
+# Author: Serhat Güler (sero583)
+# GitHub: https://github.com/sero583
+#
+# Test Strategy:
+# 1. Generator unit tests (Python pytest) - Tests generator logic, field validation, all languages
+# 2. Security validation tests - Tests security utilities and field-level validation
+# 3. Comprehensive edge-case tests for each language in ALL modes:
+#    - BOTH: JSON + MessagePack
+#    - JSON_ONLY: Only JSON (--no-msgpack flag)
+#    - MSGPACK_ONLY: Only MessagePack (--no-json flag)
+#
+# Each language runs comprehensive tests using test_data.json edge cases.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+  JAVA_VERSION: "17"
+  GO_VERSION: "1.23"
+  RUST_VERSION: "stable"
+  DART_VERSION: "stable"
+  DOTNET_VERSION: "9.0.x"
+  PHP_VERSION: "8.2"
+
+jobs:
+  # ============================================================================
+  # Phase 1: Generator Unit Tests (includes validation and all language generators)
+  # ============================================================================
+  test-generator:
+    name: Generator Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install pytest msgpack pyyaml
+
+      - name: Run generator unit tests
+        run: python -m pytest tests/test_generator.py -v --tb=short
+
+      - name: Test mutual exclusion flags
+        run: |
+          if python generate.py --python --no-msgpack --no-json 2>&1; then
+            echo "ERROR: Should have failed with both flags!"
+            exit 1
+          fi
+          echo "✓ Mutual exclusion correctly enforced"
+
+      - name: Test all language generation
+        run: python generate.py --all --override --clean
+
+      - name: Verify generated files exist
+        run: |
+          test -f output/python/__init__.py
+          test -f output/typescript/index.ts
+          test -f output/java/DataPacket.java
+          test -f output/csharp/PingPacket.cs
+          test -f output/go/ping_packet.go
+          test -f output/rust/mod.rs
+          test -f output/dart/data_packet.dart
+          test -f output/cpp/ping_packet.hpp
+          test -f output/php/PingPacket.php
+          echo "✓ All language outputs generated"
+
+  # ============================================================================
+  # Phase 1b: Security Utilities Tests
+  # ============================================================================
+  test-security:
+    name: Security Validation Tests
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install pytest msgpack
+
+      - name: Generate code with security utils
+        run: python generate.py --all --override --clean
+
+      - name: Run Python security utils tests
+        working-directory: output/python
+        run: python ../../tests/python/test_security_utils.py
+
+  # ============================================================================
+  # Phase 2: Python Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-python:
+    name: Python (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator, test-security]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install msgpack pytest
+
+      - name: Generate Python code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --python --override --clean ;;
+            JSON_ONLY)    python generate.py --python --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --python --override --clean --no-json ;;
+          esac
+
+      - name: Run comprehensive tests
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+          PYTHONUTF8: "1"
+        run: python -m pytest tests/python/test_generated_packets.py tests/python/test_security_utils.py -v --tb=short
+
+  # ============================================================================
+  # Phase 2: TypeScript Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-typescript:
+    name: TypeScript (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install npm dependencies
+        working-directory: tests/typescript
+        run: npm install
+
+      - name: Generate TypeScript code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --typescript --override --clean ;;
+            JSON_ONLY)    python generate.py --typescript --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --typescript --override --clean --no-json ;;
+          esac
+
+      - name: Install msgpack in output directory
+        if: matrix.mode != 'JSON_ONLY'
+        working-directory: output/typescript
+        run: |
+          npm init -y
+          npm install @msgpack/msgpack
+
+      - name: Run tests with Jest
+        working-directory: tests/typescript
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        run: npx jest --passWithNoTests
+
+  # ============================================================================
+  # Phase 2: Go Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-go:
+    name: Go (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: tests/go/go.sum
+
+      - name: Generate Go code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --go --override --clean ;;
+            JSON_ONLY)    python generate.py --go --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --go --override --clean --no-json ;;
+          esac
+
+      - name: Setup Go module
+        working-directory: output/go
+        run: |
+          go mod init crosspacket/packets 2>/dev/null || true
+          go mod tidy || go get github.com/vmihailenco/msgpack/v5 || true
+
+      - name: Run tests with go test
+        working-directory: tests/go
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        run: go test -v ./...
+
+  # ============================================================================
+  # Phase 2: Rust Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-rust:
+    name: Rust (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            tests/rust/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('tests/rust/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Generate Rust code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --rust --override --clean ;;
+            JSON_ONLY)    python generate.py --rust --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --rust --override --clean --no-json ;;
+          esac
+
+      - name: Create Cargo.toml for generated code
+        run: |
+          cat > output/rust/Cargo.toml << 'EOF'
+          [package]
+          name = "crosspacket_generated"
+          version = "1.0.0"
+          edition = "2021"
+
+          [lib]
+          path = "mod.rs"
+
+          [dependencies]
+          serde = { version = "1.0", features = ["derive"] }
+          serde_json = "1.0"
+          rmp-serde = "1.3"
+          chrono = { version = "0.4", features = ["serde"] }
+          EOF
+
+      - name: Run Rust tests
+        working-directory: tests/rust
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         cargo test ;;
+            JSON_ONLY)    cargo test --features no_msgpack ;;
+            MSGPACK_ONLY) cargo test --features no_json ;;
+          esac
+
+  # ============================================================================
+  # Phase 2: Java Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-java:
+    name: Java (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Generate Java code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --java --override --clean ;;
+            JSON_ONLY)    python generate.py --java --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --java --override --clean --no-json ;;
+          esac
+
+      - name: Run tests with JUnit
+        working-directory: tests/java
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        run: |
+          mkdir -p src/main/java/com/crosspacket
+          cp ../../output/java/*.java src/main/java/com/crosspacket/
+          mvn test -q
+
+  # ============================================================================
+  # Phase 2: Dart Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-dart:
+    name: Dart (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+
+      - name: Generate Dart code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --dart --override --clean ;;
+            JSON_ONLY)    python generate.py --dart --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --dart --override --clean --no-json ;;
+          esac
+
+      - name: Run tests with dart test
+        working-directory: tests/dart
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        run: |
+          mkdir -p lib/generated
+          cp ../../output/dart/generated/*.dart lib/generated/ 2>/dev/null || true
+          cp ../../output/dart/data_packet.dart lib/ 2>/dev/null || true
+          dart pub get
+          dart test
+
+  # ============================================================================
+  # Phase 2: C# Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-csharp:
+    name: C# (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator, test-security]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Generate C# code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --csharp --override --clean ;;
+            JSON_ONLY)    python generate.py --csharp --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --csharp --override --clean --no-json ;;
+          esac
+
+      - name: Setup and run tests
+        working-directory: tests/csharp
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        run: |
+          cp ../../output/csharp/*.cs .
+          dotnet test CrossPacket.Tests.csproj --configuration Release --verbosity normal
+
+  # ============================================================================
+  # Phase 2: PHP Comprehensive Tests (All Modes)
+  # ============================================================================
+  test-php:
+    name: PHP (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: msgpack
+
+      - name: Generate PHP code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --php --override --clean ;;
+            JSON_ONLY)    python generate.py --php --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --php --override --clean --no-json ;;
+          esac
+
+      - name: Install Composer dependencies
+        working-directory: tests/php
+        run: |
+          rm -rf vendor composer.lock
+          composer install
+
+      - name: Run PHPUnit tests
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        working-directory: tests/php
+        run: php vendor/bin/phpunit --testdox
+
+  # ============================================================================
+  # Phase 2: C++ Comprehensive Tests (JSON Mode - yyjson)
+  # ============================================================================
+  test-cpp:
+    name: C++ (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    needs: [test-generator]
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [BOTH, JSON_ONLY, MSGPACK_ONLY]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies (Catch2, yyjson, msgpack-c)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libmsgpack-dev catch2
+          git clone https://github.com/ibireme/yyjson.git /tmp/yyjson
+          cd /tmp/yyjson && mkdir build && cd build
+          cmake .. && make && sudo make install
+          sudo ldconfig
+
+      - name: Generate C++ code
+        run: |
+          case "${{ matrix.mode }}" in
+            BOTH)         python generate.py --cpp --override --clean ;;
+            JSON_ONLY)    python generate.py --cpp --override --clean --no-msgpack ;;
+            MSGPACK_ONLY) python generate.py --cpp --override --clean --no-json ;;
+          esac
+
+      - name: Build and run Catch2 tests
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+        run: |
+          cd tests/cpp
+          # C++ uses compile-time preprocessor flags (#ifdef) for feature detection
+          # The generator creates crosspacket_config.hpp with CROSSPACKET_HAS_JSON/CROSSPACKET_HAS_MSGPACK
+          # Note: msgpack-c is header-only, no library linking needed
+          case "${{ matrix.mode }}" in
+            BOTH)
+              g++ -std=c++17 -I../../output/cpp test_catch2.cpp ../../output/cpp/*.cpp -lyyjson -lCatch2Main -lCatch2 -o test_catch2
+              ;;
+            JSON_ONLY)
+              g++ -std=c++17 -I../../output/cpp test_catch2.cpp ../../output/cpp/*.cpp -lyyjson -lCatch2Main -lCatch2 -o test_catch2
+              ;;
+            MSGPACK_ONLY)
+              g++ -std=c++17 -I../../output/cpp test_catch2.cpp ../../output/cpp/*.cpp -lCatch2Main -lCatch2 -o test_catch2
+              ;;
+          esac
+          ./test_catch2 --reporter compact
+
+  # ============================================================================
+  # Phase 3: Code Quality
+  # ============================================================================
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Check Python style
+        run: |
+          pip install flake8
+          flake8 generate.py --max-line-length=120 --ignore=E501,W503 || true

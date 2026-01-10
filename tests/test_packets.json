@@ -1,0 +1,142 @@
+{
+  "config": {
+    "dart": {
+      "output_dir": "./output/dart",
+      "base_package": "crosspacket"
+    },
+    "python": {
+      "output_dir": "./output/python"
+    },
+    "java": {
+      "output_dir": "./output/java",
+      "package": "com.crosspacket.test"
+    },
+    "typescript": {
+      "output_dir": "./output/typescript"
+    },
+    "rust": {
+      "output_dir": "./output/rust"
+    },
+    "go": {
+      "output_dir": "./output/go",
+      "package": "packets"
+    }
+  },
+  "packets": {
+    "/test/AllTypesPacket": {
+      "description": "Packet containing all supported data types for comprehensive testing",
+      "fields": {
+        "int_field": {
+          "type": "int",
+          "description": "Integer field"
+        },
+        "float_field": {
+          "type": "float",
+          "description": "Float field"
+        },
+        "double_field": {
+          "type": "double",
+          "description": "Double precision field"
+        },
+        "bool_field": {
+          "type": "bool",
+          "description": "Boolean field"
+        },
+        "string_field": {
+          "type": "string",
+          "description": "String field"
+        },
+        "datetime_field": {
+          "type": "datetime",
+          "description": "DateTime field with timezone"
+        },
+        "list_field": {
+          "type": "list",
+          "description": "Dynamic list field"
+        },
+        "list_int_field": {
+          "type": "list_int",
+          "description": "Integer list field"
+        },
+        "list_string_field": {
+          "type": "list_string",
+          "description": "String list field"
+        },
+        "map_field": {
+          "type": "map",
+          "description": "Map field"
+        }
+      }
+    },
+    "/test/OptionalTypesPacket": {
+      "description": "Packet with optional fields for null handling tests",
+      "fields": {
+        "required_string": {
+          "type": "string",
+          "description": "Required string field"
+        },
+        "optional_int": {
+          "type": "int",
+          "description": "Optional integer field",
+          "optional": true
+        },
+        "optional_string": {
+          "type": "string",
+          "description": "Optional string field",
+          "optional": true
+        },
+        "optional_list": {
+          "type": "list_string",
+          "description": "Optional list field",
+          "optional": true
+        }
+      }
+    },
+    "/test/NestedMapPacket": {
+      "description": "Packet with nested map structures",
+      "fields": {
+        "id": {
+          "type": "string",
+          "description": "Packet identifier"
+        },
+        "nested_data": {
+          "type": "map",
+          "description": "Nested map with complex structure"
+        },
+        "embedded_data": {
+          "type": "embedded_map",
+          "description": "Embedded map from msgpack"
+        }
+      }
+    },
+    "/test/EdgeCasePacket": {
+      "description": "Packet for testing edge cases",
+      "fields": {
+        "empty_string": {
+          "type": "string",
+          "description": "Empty string test"
+        },
+        "unicode_string": {
+          "type": "string",
+          "description": "Unicode characters test"
+        },
+        "large_int": {
+          "type": "int",
+          "description": "Large integer test"
+        },
+        "negative_int": {
+          "type": "int",
+          "description": "Negative integer test"
+        },
+        "zero_float": {
+          "type": "float",
+          "description": "Zero float test"
+        },
+        "negative_float": {
+          "type": "float",
+          "description": "Negative float test"
+        }
+      }
+    }
+  }
+}

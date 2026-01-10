@@ -1,0 +1,12 @@
+name: crosspacket_tests
+description: CrossPacket Dart Test Suite (Pure Dart - No Flutter Dependency)
+version: 1.0.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  msgpack_dart: ^1.0.1
+
+dev_dependencies:
+  test: ^1.25.0
