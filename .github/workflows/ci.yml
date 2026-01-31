@@ -356,7 +356,13 @@ jobs:
           cp ../../generated/dart/generated/*.dart lib/generated/ 2>/dev/null || true
           cp ../../generated/dart/data_packet.dart lib/ 2>/dev/null || true
           dart pub get
-          dart test
+          if [ "${{ matrix.mode }}" = "BOTH" ]; then
+            # Run all tests including roundtrip tests (requires all methods)
+            dart test
+          else
+            # Run only main tests (excludes roundtrip_test.dart which requires BOTH mode)
+            dart test test/packets_test.dart
+          fi
 
   # ============================================================================
   # Phase 2: C# Comprehensive Tests (All Modes)
