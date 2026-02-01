@@ -10,10 +10,12 @@
 name: Coverage
 
 on:
-  workflow_run:
-    workflows: ["Generate Code"]
-    types: [completed]
+  push:
     branches: [main, master]
+    paths:
+      - 'generated/**'
+      - 'tests/**'
+      - '.github/workflows/coverage.yml'
   workflow_dispatch:
 
 env:
@@ -27,38 +29,11 @@ env:
 
 jobs:
   # ============================================================================
-  # Check if bot committed (skip coverage on user commits)
-  # ============================================================================
-  check-bot-commit:
-    name: Check Bot Commit
-    runs-on: ubuntu-latest
-    outputs:
-      should_run: ${{ steps.check.outputs.should_run }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-      - name: Check if last commit was by bot
-        id: check
-        run: |
-          AUTHOR=$(git log -1 --format='%an')
-          echo "Last commit author: $AUTHOR"
-          if [[ "$AUTHOR" == "github-actions[bot]" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "Skipping coverage - commit was by user, not bot"
-          fi
-
-  # ============================================================================
   # TypeScript Coverage
-  # Uses generated/typescript/ directly (already committed to repo)
+  # Copies generated files to tests/typescript/lib/ for coverage collection
   # ============================================================================
   coverage-typescript:
     name: TypeScript Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,19 +43,30 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Copy generated files for coverage
+        run: |
+          mkdir -p tests/typescript/lib
+          cp generated/typescript/*.ts tests/typescript/lib/
+
       - name: Install test dependencies
         working-directory: tests/typescript
         run: npm install
 
-      - name: Install msgpack in generated folder
-        working-directory: generated/typescript
+      - name: Install msgpack in lib folder
+        working-directory: tests/typescript/lib
         run: |
           npm init -y
           npm install @msgpack/msgpack
 
+      - name: Create test wrapper for coverage
+        working-directory: tests/typescript
+        run: |
+          # Update imports to use local lib folder for coverage
+          sed -i 's|../../generated/typescript|./lib|g' packets.test.ts
+
       - name: Run tests with coverage
         working-directory: tests/typescript
-        run: npx jest --coverage --coverageReporters=lcov
+        run: npx jest --coverage --coverageReporters=lcov --collectCoverageFrom='lib/**/*.ts'
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
@@ -96,8 +82,6 @@ jobs:
   # ============================================================================
   coverage-python:
     name: Python Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -127,8 +111,6 @@ jobs:
   # ============================================================================
   coverage-go:
     name: Go Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -546,8 +528,6 @@ jobs:
   # ============================================================================
   coverage-java:
     name: Java Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -582,8 +562,6 @@ jobs:
   # ============================================================================
   coverage-csharp:
     name: C# Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -615,8 +593,6 @@ jobs:
   # ============================================================================
   coverage-dart:
     name: Dart Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -654,8 +630,6 @@ jobs:
   # ============================================================================
   coverage-php:
     name: PHP Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -691,8 +665,6 @@ jobs:
   # ============================================================================
   coverage-rust:
     name: Rust Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -723,8 +695,6 @@ jobs:
   # ============================================================================
   coverage-cpp:
     name: C++ Coverage
-    needs: check-bot-commit
-    if: needs.check-bot-commit.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

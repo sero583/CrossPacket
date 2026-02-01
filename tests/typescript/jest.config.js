@@ -12,8 +12,6 @@ module.exports = {
   verbose: true,
   testTimeout: 30000,
   coverageDirectory: './coverage',
-  coverageReporters: ['text', 'lcov', 'html'],  // Collect coverage from the generated TypeScript files we're testing
-  collectCoverageFrom: [
-    '../../generated/typescript/**/*.ts',
-    '!../../generated/typescript/node_modules/**',
-  ],};
+  coverageReporters: ['text', 'lcov', 'html'],
+  // Coverage is collected from generated folder via CLI --collectCoverageFrom
+};
